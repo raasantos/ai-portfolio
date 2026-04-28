@@ -2,16 +2,42 @@
 **Data: Mon 27 Apr - Sat 2 May** 
 **Capítulos/recursos cobertos:**
 
-## 10 observações que fiz (não resumo — o que me chamou atenção)
-1. 
-2.
-...
+## 10 observations that I made(não resumo — what got my attention)
+1. How evolution of IA parameters can change one IA from LLM to just a LM
+2. Self-supervision if applied to workflows and agents can speed up learning and quality.
+3. How fundation models changed the way it worked with AI, as an evolution of ML and Small Language Models. And it's exactly what we are experiencing
+now, the use of AI and fundation models to solve a bunch of tasks that we didn't think it was possible before.
+4. AI is present on everywhere. Humans use Ai to write e-mails, optimize their speech, to learn, to code, and in many other areas. Although many people
+think it will replace their occupations, and jobs, there's also another side of the story: it can be used to leverage their knowledge or to learn any-
+thing.
+5. Although many reasons for using AI such as competitors, productivity or don't want to be left behind, when using AI on yout business it is important
+to know why, what outcomes are expected and how to measure them. Use it blindly and for no purpose will be difficult to measure if it's on the right
+path or if there's any learning for the business at all.
+6.  Microsoft framework embraces iterative releases on AI Automation; it is a good framework to have in mind when building AI Applications. Although 
+product people should already be thinking this way, a framework can be a useful shortcut.
+7. With the easy of AI use to generate features and products it's becoming easier and easier to have a product replicated. Thinking on the aspects of
+this product, trying to understand the market, the needs and having a real advantage is key.
+8. Although we get expectations on building products on days, or in a weekend, it's not entirely true. Real products takes time to be ready, it can lead
+to months and years of work. Prototypes and experimentations with AI is easier to go, but real and profitable products still has complexity on the table.
+9. Building an AI product has to keep in mind maitanence and model upgrades.
+10. Prompt based techniques can be used to alter a model, or to adapt it to the way you want to use. Most of the cases I might work I will be applying
+prompt engineering rather than trainning or fine tunning a model. One thing that I kept in mind is maybe small language models, or even LLMs with less
+parameters, can be used for specialized context, if finetuned, and it can improve costs a lots (hypothesis)
 
-## O que não entendi ainda
+## What I still don't understand
+- When to fine tune and how (as LLMs now seems very cabable of handling a plenty of different tasks)
 -
 
-## Como isso muda como eu penso sobre produto
--
+## How does it change on how I think about product
+- Still not much as it's more on the technical side.
+- I see opportunities everywhere with AI for products.
+-- On the organizations and product teams it can help PMs to get better at writting memos, release notes, or even automatize these kind of tasks so
+product people can focus on what really matters: business outcomes.
+-- Also for the product teams, AI can help them validate ideas faster, spending less coding it. Let's suppose you want to try a new product, instead of
+spending hours of Engineering to build something, now, with AI, product teams can do IT and run experiments on their own.
+- Planning of AI: the book brings a framework on how to plan, simillar to product mindset that has to be in place already. Like defining what success 
+looks like, define the metrics, product has to be defendable. it's like a Business Case, but, more focused on AI products and it can be used on my 
+experimentations.
 
-## Pergunta que ficou em aberto
--
+## Questions that are still open
+- Metrics that I need to use when creating AI products (aside from product metrics)
