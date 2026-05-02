@@ -1,0 +1,15 @@
+# Environment secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# IDE
+.vscode/
+
+# Conversations (optional — include if you want history in git)
+# conversations/
