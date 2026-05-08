@@ -1,18 +1,7 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
-@dataclass
-class Message:
-    role: str
-    content: str
-    timestamp: Optional[str] = None
-    model: Optional[str] = None
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-
-
-@dataclass
-class ChatRequest:
-    message: str
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
     conversation_id: Optional[str] = None

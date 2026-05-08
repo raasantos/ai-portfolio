@@ -11,5 +11,5 @@ venv/
 # IDE
 .vscode/
 
-# Conversations (optional — include if you want history in git)
-# conversations/
+# Conversation history — contains user data, never committed
+backend/conversations/
