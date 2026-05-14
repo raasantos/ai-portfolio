@@ -21,6 +21,12 @@ in public.
 
 ## Products
 
+### ai_chat_v1
+An Chat interface designed to communicate with Anthropic API,
+made to understanding how communication with APIs works without
+any SDK.
+- Status : Done.
+
 ### Career Multi-Agent (Flowise)
 An AI agent system designed to support career strategy, 
 positioning and professional development.

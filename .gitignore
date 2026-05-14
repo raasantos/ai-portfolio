@@ -1,1 +1,12 @@
 .DS_Store
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
