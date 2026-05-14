@@ -9,7 +9,7 @@ class JobResponse(BaseModel):
     vaga: str
     remoto: bool
     salario_divulgado: bool
-    salario: Optional[str]
+    salario: Optional[str] = None
     requisitos: list[str]
     beneficios: list[str]
     skills: list[str]

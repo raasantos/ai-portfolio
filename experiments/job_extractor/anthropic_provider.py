@@ -8,6 +8,9 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 MODEL_NAME = os.getenv("MODEL_NAME", "claude-haiku-4-5-20251001")
 
+if not ANTHROPIC_API_KEY:
+    raise RuntimeError("ANTHROPIC_API_KEY is not set. Add it to your .env file.")
+
 TOOL = {
     "name": "extract_job_fields",
     "description": "Extracts structured job information from unstructured text.",
@@ -46,8 +49,14 @@ def extract_with_tool(text: str) -> dict:
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json"
     }
-    response = requests.post(ANTHROPIC_API_URL, json=payload, headers=headers)
-    response.raise_for_status()
+
+    try:
+        response = requests.post(ANTHROPIC_API_URL, json=payload, headers=headers, timeout=30)
+    except requests.exceptions.RequestException as network_error:
+        raise RuntimeError(f"Failed to reach Anthropic API: {network_error}") from network_error
+
+    if not response.ok:
+        raise ValueError(f"Anthropic API error {response.status_code}: {response.text}")
 
     data = response.json()
 
@@ -56,6 +65,6 @@ def extract_with_tool(text: str) -> dict:
         None
     )
     if tool_block is None:
-        raise ValueError("API não retornou um bloco tool_use. Resposta: " + str(data))
+        raise ValueError("API did not return a tool_use block. Response: " + str(data))
 
     return tool_block["input"]
