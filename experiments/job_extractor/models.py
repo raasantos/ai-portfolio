@@ -1,8 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class JobRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=20000)
 
 class JobResponse(BaseModel):
     empresa: str

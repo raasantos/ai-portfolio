@@ -56,7 +56,7 @@ def extract_with_tool(text: str) -> dict:
         raise RuntimeError(f"Failed to reach Anthropic API: {network_error}") from network_error
 
     if not response.ok:
-        raise ValueError(f"Anthropic API error {response.status_code}: {response.text}")
+        raise ValueError(f"Anthropic API error {response.status_code}")
 
     data = response.json()
 
