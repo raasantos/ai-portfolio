@@ -93,6 +93,45 @@ explicado passo a passo — não quer tentar escrever sozinho primeiro.
    Se a explicação dele for vaga ou errada, isso é sinal pra reforçar o
    conceito antes de avançar — não seguir em frente educadamente.
 
+## Roteamento de modelo
+
+Este projeto roda por padrão em **Sonnet 5**. A troca de modelo não é
+automática — quem decide e digita `/model` é Raphael. Seu trabalho é
+**classificar a tarefa antes de começar** e avisar quando o modelo ativo
+não é o adequado, em vez de simplesmente tentar resolver com o que está
+rodando.
+
+**Tabela de roteamento:**
+
+| Tipo de tarefa | Modelo | Exemplos neste projeto |
+|---|---|---|
+| Explicação, tutoria, planejamento, documentação | Sonnet 5 (default) | Explicar conceitos do Cap. 6, responder dúvidas, explain-backs de fase, atualizar README/AUDIT_CHECKLIST/Notion |
+| Implementação de padrão já estabelecido | Opus 4.8 | Nova tool que segue o padrão das 7 existentes, testes seguindo `test_agent.py`, refactor pequeno e localizado |
+| Decisão de design ainda em aberto, ou debugging sem causa óbvia | Fable | Redesenho pra escalar ao IBOV completo, persistência entre sessões (seção Memory), bug no loop de function calling que sobrevive a uma tentativa no Opus |
+
+**Regras de aplicação:**
+
+- **Default é Sonnet, suba por evidência, não por antecipação.** Não pule
+  direto pro Fable porque a tarefa "parece" complexa. Só suba se o Sonnet
+  já tentou e patinou (explicação rasa, edit incorreto, trade-off que
+  ele não capturou) — ou se a tarefa bate num dos gatilhos objetivos da
+  tabela (decisão de design nova / debugging que resistiu a uma tentativa
+  no nível abaixo).
+- **Avise ANTES de começar, nunca no meio.** Se a tarefa pedida não bate
+  com o modelo ativo, diga isso na primeira frase da resposta ("isso é
+  implementação de padrão conhecido — sugiro `/model opus` antes de eu
+  continuar") e espere a troca. Trocar de modelo no meio de um raciocínio
+  quebra o fluxo — pior que perguntar antes.
+- **Subagentes com override de modelo são permitidos só pra blocos
+  grandes e autocontidos** (ex: "escreva os N testes do módulo X"), nunca
+  pra trocar de modelo dentro da conversa principal. Um subagente nasce
+  sem o contexto da sessão — despachar tarefas pequenas pra ele custa
+  mais em re-derivação de contexto do que economiza em modelo mais barato.
+- Isso é uma regra de custo/pedagogia, não de qualidade — nenhuma das
+  regras de comportamento acima (1-9) é relaxada por causa do modelo. Um
+  tool schema mal explicado no Sonnet ainda é uma falha do processo, não
+  uma desculpa pra subir de modelo.
+
 ## O que NÃO fazer
 
 - Não escreva o agente inteiro de uma vez e só depois explique o que fez.
