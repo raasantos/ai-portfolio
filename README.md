@@ -32,6 +32,15 @@ An AI agent system designed to support career strategy,
 positioning and professional development.
 - Status: Phase 1 live — Phase 2 in progress
 
+### [Trello + Claude + Instagram Automation](products/trello-claude-instagram-automation/)
+An end-to-end content pipeline: plan post ideas as Trello cards, Claude 
+writes the copy, a Lambda renders an on-brand image, a human approves on 
+Trello, and the Instagram Graph API auto-publishes. Two n8n workflows 
+connect the pieces, with content-safety guardrails (no fabricated stats, 
+no duplicate publishing) built in. Extracted and sanitized from a real 
+production deployment into a reusable, brand-agnostic open-source release.
+- Status: Live in production (private deployment) · this release is open source
+
 ---
 
 ## Stack

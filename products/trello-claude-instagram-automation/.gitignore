@@ -1,0 +1,7 @@
+lambda/build/
+lambda/lambda_deploy.zip
+lambda/fonts/*.otf
+lambda/fonts/*.ttf
+__pycache__/
+*.pyc
+.DS_Store

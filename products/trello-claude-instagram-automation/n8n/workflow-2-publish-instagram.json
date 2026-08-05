@@ -1,0 +1,499 @@
+{
+  "name": "WF2 - Publish to Instagram",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## ⚠️ CONFIGURE BEFORE ACTIVATING\n\n### 1. Trello list IDs (3 placeholders to replace)\n- **\"Get cards em Aprovado\"** → `id` → `PASTE_YOUR_TRELLO_LIST_ID_APPROVED`\n- **\"Card -> Publicado\"** → `updateFields.idList` → `PASTE_YOUR_TRELLO_LIST_ID_PUBLISHED`\n- **\"Card -> Erro\"** → `updateFields.idList` → `PASTE_YOUR_TRELLO_LIST_ID_ERROR`\n\n### 2. Credential (redo on every import)\n**Credentials → Add credential → Header Auth**\n- **Name:** `Authorization`\n- **Value:** `Bearer YOUR_PAGE_ACCESS_TOKEN`\n\nSelect it on both HTTP nodes: \"Create media container\" and \"Publish media\".\n\nUse the **Page Access Token** (from `GET /me/accounts`, called with an already-long-lived user token), not the user token — see README.md for the full token exchange chain and why this specific token is required.\n\n### 3. Instagram account ID\nNode **\"Parse & validate\"** → first line → replace `PASTE_YOUR_INSTAGRAM_USER_ID`.\nFind it via Graph API Explorer → `GET /{page_id}?fields=instagram_business_account`.\n\n### 4. Meta prerequisites\nBusiness/Creator Instagram account linked to a Facebook Page, App created and approved in App Review for `instagram_content_publish` (and related permissions) — see README.md.\n\n---\nOnly publishes cards that already have `image_url` and `caption`.\nA card with `ig_post_id` already set is skipped — protects\nagainst duplicate posts.",
+        "height": 640,
+        "width": 420,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        -700
+      ],
+      "id": "aa000000-0000-4000-8000-000000000001",
+      "name": "LEIA — configuração"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        180,
+        -240
+      ],
+      "id": "aa000000-0000-4000-8000-000000000002",
+      "name": "A cada 10 minutos"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth1",
+        "resource": "list",
+        "operation": "getCards",
+        "id": "PASTE_YOUR_TRELLO_LIST_ID_APPROVED",
+        "returnAll": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -240
+      ],
+      "id": "aa000000-0000-4000-8000-000000000003",
+      "name": "Get cards em Aprovado",
+      "credentials": {
+        "trelloOAuth1Api": {
+          "id": "REPLACE_WITH_YOUR_TRELLO_CREDENTIAL_ID",
+          "name": "Trello account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ÚNICO lugar para editar o ID da conta do Instagram.\n// Pegue em: Meta Graph API Explorer -> GET /me/accounts -> instagram_business_account\nconst IG_USER_ID = 'PASTE_YOUR_INSTAGRAM_USER_ID';\n\nconst items = [];\n\nfor (const item of $input.all()) {\n  const card = item.json;\n\n  let desc = {};\n  try {\n    const clean = card.desc.replace(/\\\\_/g, '_').replace(/\\\\\"/g, '\"');\n    desc = JSON.parse(clean);\n  } catch (e) {\n    items.push({ json: {\n      card_id: card.id, card_name: card.name, content_type: '', idea_description: '',\n      caption: '', image_url: '', scheduled_time: '', expected_generation_date: '',\n      ig_post_id: '', ig_user_id: IG_USER_ID,\n      publish_error: 'Descrição do card não é JSON válido: ' + e.message,\n    }});\n    continue;\n  }\n\n  const base = {\n    card_id: card.id,\n    card_name: card.name,\n    content_type: desc.content_type || '',\n    idea_description: desc.idea_description || '',\n    caption: desc.caption || '',\n    image_url: desc.image_url || '',\n    scheduled_time: desc.scheduled_time || '',\n    expected_generation_date: desc.expected_generation_date || '',\n    ig_post_id: desc.ig_post_id || '',\n    ig_user_id: IG_USER_ID,\n    publish_error: '',\n  };\n\n  // Já publicado: não republica. Protege contra post duplicado se o card voltar\n  // para Aprovado por engano ou se uma execução anterior morreu no meio.\n  if (base.ig_post_id) continue;\n\n  if (IG_USER_ID.startsWith('COLE_AQUI')) {\n    base.publish_error = 'IG_USER_ID não configurado no node \"Parse & validate\".';\n  } else if (!base.image_url) {\n    base.publish_error = 'Card sem image_url — não passou pela geração de imagem.';\n  } else if (!base.caption) {\n    base.publish_error = 'Card sem caption.';\n  } else if (!/^https:\\/\\/[^\\s\"]+\\.jpe?g$/i.test(base.image_url)) {\n    // O Instagram só aceita JPEG servido por URL pública https.\n    base.publish_error = 'image_url precisa ser um .jpg público via https. Valor: ' + base.image_url;\n  }\n\n  items.push({ json: base });\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        -240
+      ],
+      "id": "aa000000-0000-4000-8000-000000000004",
+      "name": "Parse & validate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "aa000000-0000-4000-8000-000000000005",
+              "leftValue": "={{ $json.publish_error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        840,
+        -240
+      ],
+      "id": "aa000000-0000-4000-8000-000000000005",
+      "name": "Card válido?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        -360
+      ],
+      "id": "aa000000-0000-4000-8000-000000000010",
+      "name": "Prep container"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.ig_user_id }}/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ image_url: $json.image_url, caption: $json.caption }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        -360
+      ],
+      "id": "aa000000-0000-4000-8000-000000000006",
+      "name": "Create media container"
+    },
+    {
+      "parameters": {
+        "jsCode": "// O node HTTP substitui item.json pela resposta — recupera o que veio antes.\n// Referencia \"Prep container\" (e não \"Parse & validate\") de propósito: o IF\n// anterior filtra itens, então só o node imediatamente antes do HTTP tem a\n// mesma quantidade e ordem de itens. Casar por índice com um node de antes do\n// filtro desalinharia os dados assim que um card fosse rejeitado.\nconst responses = $input.all();\nconst upstream = $('Prep container').all();\nconst items = [];\n\nfor (let i = 0; i < responses.length; i++) {\n  const card = upstream[i].json;\n  const res = responses[i].json;\n  const body = res.body || {};\n\n  if (res.statusCode === 200 && body.id) {\n    items.push({ json: { ...card, creation_id: body.id } });\n  } else {\n    const err = body.error || {};\n    const detalhe = err.message\n      ? `${err.message} (code ${err.code}${err.error_subcode ? '/' + err.error_subcode : ''})`\n      : JSON.stringify(body).slice(0, 300);\n    items.push({ json: { ...card, publish_error: `Falha ao criar container: ${detalhe}` } });\n  }\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        -360
+      ],
+      "id": "aa000000-0000-4000-8000-000000000007",
+      "name": "Merge container id"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "aa000000-0000-4000-8000-000000000008",
+              "leftValue": "={{ $json.publish_error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        -360
+      ],
+      "id": "aa000000-0000-4000-8000-000000000008",
+      "name": "Container criado?"
+    },
+    {
+      "parameters": {
+        "amount": 5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1940,
+        -460
+      ],
+      "id": "aa000000-0000-4000-8000-000000000009",
+      "name": "Aguardar processamento",
+      "webhookId": "aa000000-0000-4000-8000-00000000000a"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.ig_user_id }}/media_publish",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ creation_id: $json.creation_id }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        -460
+      ],
+      "id": "aa000000-0000-4000-8000-00000000000b",
+      "name": "Publish media"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mesma regra do node anterior: o Wait é o último node antes do HTTP e passa\n// os itens adiante sem alterar, então é ele que tem a lista alinhada.\nconst responses = $input.all();\nconst upstream = $('Aguardar processamento').all();\nconst items = [];\n\nfor (let i = 0; i < responses.length; i++) {\n  const card = upstream[i].json;\n  const res = responses[i].json;\n  const body = res.body || {};\n\n  if (res.statusCode === 200 && body.id) {\n    items.push({ json: { ...card, ig_post_id: body.id, publish_error: '' } });\n  } else {\n    const err = body.error || {};\n    const detalhe = err.message\n      ? `${err.message} (code ${err.code}${err.error_subcode ? '/' + err.error_subcode : ''})`\n      : JSON.stringify(body).slice(0, 300);\n    items.push({ json: { ...card, publish_error: `Falha ao publicar: ${detalhe}` } });\n  }\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2380,
+        -460
+      ],
+      "id": "aa000000-0000-4000-8000-00000000000c",
+      "name": "Parse publish result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "aa000000-0000-4000-8000-00000000000d",
+              "leftValue": "={{ $json.publish_error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        -460
+      ],
+      "id": "aa000000-0000-4000-8000-00000000000d",
+      "name": "Publicado?"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth1",
+        "resource": "card",
+        "operation": "update",
+        "id": "={{ $json.card_id }}",
+        "updateFields": {
+          "desc": "={{ JSON.stringify({ content_type: $json.content_type, idea_description: $json.idea_description, caption: $json.caption, image_url: $json.image_url, scheduled_time: $json.scheduled_time, expected_generation_date: $json.expected_generation_date, ig_post_id: $json.ig_post_id, error_message: '' }) }}",
+          "idList": "PASTE_YOUR_TRELLO_LIST_ID_PUBLISHED"
+        }
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        2820,
+        -560
+      ],
+      "id": "aa000000-0000-4000-8000-00000000000e",
+      "name": "Card -> Publicado",
+      "credentials": {
+        "trelloOAuth1Api": {
+          "id": "REPLACE_WITH_YOUR_TRELLO_CREDENTIAL_ID",
+          "name": "Trello account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth1",
+        "resource": "card",
+        "operation": "update",
+        "id": "={{ $json.card_id }}",
+        "updateFields": {
+          "desc": "={{ JSON.stringify({ content_type: $json.content_type, idea_description: $json.idea_description, caption: $json.caption, image_url: $json.image_url, scheduled_time: $json.scheduled_time, expected_generation_date: $json.expected_generation_date, ig_post_id: $json.ig_post_id, error_message: $json.publish_error }) }}",
+          "idList": "PASTE_YOUR_TRELLO_LIST_ID_ERROR"
+        }
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        60
+      ],
+      "id": "aa000000-0000-4000-8000-00000000000f",
+      "name": "Card -> Erro",
+      "credentials": {
+        "trelloOAuth1Api": {
+          "id": "REPLACE_WITH_YOUR_TRELLO_CREDENTIAL_ID",
+          "name": "Trello account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "A cada 10 minutos": {
+      "main": [
+        [
+          {
+            "node": "Get cards em Aprovado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get cards em Aprovado": {
+      "main": [
+        [
+          {
+            "node": "Parse & validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & validate": {
+      "main": [
+        [
+          {
+            "node": "Card válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Card válido?": {
+      "main": [
+        [
+          {
+            "node": "Prep container",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Card -> Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep container": {
+      "main": [
+        [
+          {
+            "node": "Create media container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create media container": {
+      "main": [
+        [
+          {
+            "node": "Merge container id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge container id": {
+      "main": [
+        [
+          {
+            "node": "Container criado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Container criado?": {
+      "main": [
+        [
+          {
+            "node": "Aguardar processamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Card -> Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar processamento": {
+      "main": [
+        [
+          {
+            "node": "Publish media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish media": {
+      "main": [
+        [
+          {
+            "node": "Parse publish result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse publish result": {
+      "main": [
+        [
+          {
+            "node": "Publicado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicado?": {
+      "main": [
+        [
+          {
+            "node": "Card -> Publicado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Card -> Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REPLACE_ON_IMPORT"
+  },
+  "nodeGroups": [],
+  "tags": []
+}

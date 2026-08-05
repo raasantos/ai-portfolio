@@ -1,0 +1,478 @@
+{
+  "name": "WF1 - Generate Instagram Post Image",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## ⚠️ DO THIS AFTER EVERY IMPORT\n\nn8n does **not** export credential links — this is the only unavoidable manual step.\n\n### 1. Trello list IDs (3 placeholders to replace)\nOpen each of these 3 nodes and replace the placeholder in the field shown:\n- **\"Get all cards in a list\"** → `id` → `PASTE_YOUR_TRELLO_LIST_ID_TO_GENERATE`\n- **\"Update card (success)\"** → `updateFields.idList` → `PASTE_YOUR_TRELLO_LIST_ID_TO_APPROVE`\n- **\"Update card (error)\"** → `updateFields.idList` → `PASTE_YOUR_TRELLO_LIST_ID_ERROR`\n\nSee README.md for how to find a Trello list's ID.\n\n### 2. Credentials\n- **Trello account** (OAuth1) — select/create on the two Trello nodes above, plus \"Get all cards in a list\"\n- **Anthropic account** — select/create on \"Message a model1\"\n- **Lambda secret** — node \"Render image (Lambda)\" → *Credential for Header Auth* → create a **Header Auth** credential: Name = `X-Render-Secret`, Value = the `RENDER_API_KEY` you set when deploying the Lambda\n\n### 3. Brand voice\nEdit the \"Build Claude Prompt\" node — `BRAND_SYSTEM` and `CONTENT_TYPE_RULES` are placeholders. See README.md.",
+        "height": 470,
+        "width": 460,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -860
+      ],
+      "id": "f0e1d2c3-b4a5-4968-8776-5a4b3c2d1e0f",
+      "name": "READ ME — setup steps after import"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth1",
+        "resource": "list",
+        "operation": "getCards",
+        "id": "PASTE_YOUR_TRELLO_LIST_ID_TO_GENERATE",
+        "returnAll": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        528,
+        -240
+      ],
+      "id": "b3179197-fca5-4a80-b2fc-88ec24eb495c",
+      "name": "Get all cards in a list",
+      "credentials": {
+        "trelloOAuth1Api": {
+          "id": "REPLACE_WITH_YOUR_TRELLO_CREDENTIAL_ID",
+          "name": "Trello account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nfor (const item of $input.all()) {\n  const card = item.json;\n\n  let desc = {};\n  try {\n    // Remove escapes do Trello e faz parse\n    const descClean = card.desc\n      .replace(/\\\\_/g, '_')\n      .replace(/\\\\\"/g, '\"');\n    desc = JSON.parse(descClean);\n  } catch (e) {\n    desc = {\n      content_type: '',\n      idea_description: '',\n      caption: '',\n      image_url: '',\n      scheduled_time: '',\n      expected_generation_date: '',\n      ig_post_id: '',\n      error_message: 'Erro ao parsear JSON da descrição: ' + e.message\n    };\n  }\n\n  items.push({\n    json: {\n      card_id: card.id,\n      card_name: card.name,\n      card_url: card.url,\n      content_type: desc.content_type || '',\n      idea_description: desc.idea_description || '',\n      caption: desc.caption || '',\n      image_url: desc.image_url || '',\n      scheduled_time: desc.scheduled_time || '',\n      expected_generation_date: desc.expected_generation_date || '',\n      ig_post_id: desc.ig_post_id || '',\n      error_message: desc.error_message || ''\n    }\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        -240
+      ],
+      "id": "8ba52f3b-a9d9-49ea-bd9c-00c1bef8a68a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\n// Brasília = UTC-3\nconst now = new Date();\nconst brasilNow = new Date(now.getTime() - (3 * 60 * 60 * 1000));\nconst today = brasilNow.toISOString().split('T')[0];\n\nfor (const item of $input.all()) {\n  const cardDate = item.json.expected_generation_date.split('T')[0];\n\n  if (cardDate === today) {\n    items.push(item);\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -240
+      ],
+      "id": "d21b251a-cc76-48e7-8424-db4533d9553e",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mapeamento content_type -> template/tag, conforme a página \"Renderização de\n// Imagem — Templates & Lambda\" no Notion. Os 4 templates de headline entram\n// num pool de rotação aleatória; quote e tag_stat são fixos por content_type.\nconst TEMPLATE_MAP = {\n  hook:          { pool: true,  template: null,      tag: 'PERGUNTA' },\n  pain_mirror:   { pool: false, template: 'quote',    tag: null },\n  myth:          { pool: true,  template: null,       tag: 'MITO' },\n  trust:         { pool: true,  template: null,       tag: 'CONFIANÇA' },\n  hook_stat:     { pool: false, template: 'tag_stat', tag: 'DADO' },\n  news_reaction: { pool: true,  template: null,       tag: 'NOTÍCIA' },\n  math_example:  { pool: false, template: 'tag_stat', tag: 'CONTA' },\n  how_it_works:  { pool: true,  template: null,       tag: 'GUIA' },\n  glossario:     { pool: true,  template: null,       tag: 'GUIA' },\n  cta:           { pool: true,  template: null,       tag: 'ACESSO' }\n};\n\nconst POOL_TEMPLATES = ['hook_simples', 'framed', 'left_editorial', 'tag_headline'];\n\n// content_type que exige dado/fonte real verificável na idea_description —\n// nunca inventar número ou notícia (checado de fato depois da resposta do\n// Claude, no node \"Parse Claude Response\").\nconst REQUIRES_SOURCE = ['hook_stat', 'math_example', 'news_reaction'];\n\nconst items = [];\n\nfor (const item of $input.all()) {\n  const card = item.json;\n  const contentType = (card.content_type || 'hook').trim();\n  const config = TEMPLATE_MAP[contentType];\n  const safeConfig = config || TEMPLATE_MAP.hook;\n\n  const template = safeConfig.pool\n    ? POOL_TEMPLATES[Math.floor(Math.random() * POOL_TEMPLATES.length)]\n    : safeConfig.template;\n\n  const fieldSchema = template === 'quote' ? 'quote'\n    : template === 'tag_stat' ? 'stat'\n    : 'headline';\n\n  items.push({\n    json: {\n      ...card,\n      content_type: contentType,\n      template,\n      fixed_tag: safeConfig.tag,\n      field_schema: fieldSchema,\n      requires_source: REQUIRES_SOURCE.includes(contentType),\n      // Começa limpo a cada execução: um card que falhou antes e voltou pra\n      // ✍️ Para Gerar precisa ser reprocessado, não re-rejeitado pelo erro velho.\n      generation_error: config ? '' : `content_type desconhecido: \"${contentType}\"`\n    }\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -240
+      ],
+      "id": "a1e3c5d7-2f4b-4a6e-9c1d-7b8f0e2a3c4d",
+      "name": "Determine Template & Schema"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Claude prompt dynamically based on the output schema required by\n// the randomly-picked template (headline / quote / stat).\n//\n// EDIT ME: BRAND_SYSTEM below is a placeholder — replace it with your own\n// brand voice, product description, and constraints. CONTENT_TYPE_RULES is a\n// working example content taxonomy (10 content pillars); adapt the wording\n// to your niche, or trim/extend the list. The mechanics (schema selection,\n// the missing_source_data guardrail) are reusable as-is.\nconst BRAND_SYSTEM = `You are the content-creation agent for [YOUR BRAND] — [one sentence describing what the product/brand is and what makes it different].\n\n## About the product\nPositioning: \"[your one-line positioning statement]\"\nAudience: [who you're talking to and what problem they have]\nValue proposition: [what makes this trustworthy or different from alternatives]\n\n## Tone of voice\n- [bullet describing tone]\n- [bullet describing tone]\n- [bullet describing tone]\n\n## What to NEVER do\n- Don't recommend specific products/services (if that's a real constraint for your brand)\n- Don't use a salesy tone or artificial urgency\n- Don't use more than 2 emojis per post\n- Don't make promises about outcomes or results\n- Don't invent data, statistics, or facts that aren't explicitly present in the idea description\n\n## Account context\nInstagram: @[your_handle]\nCurrent phase: [growth stage / current goal]\nContent goal: [what you want this content to achieve]`;\n\nconst SCHEMA_INSTRUCTIONS = {\n  headline: `{\n  \"headline\": \"main hook, 12 words max\",\n  \"subtext\": \"complements the headline, optional — use an empty string if not needed\",\n  \"caption\": \"full caption for the Instagram post\"\n}`,\n  quote: `{\n  \"quote\": \"the pain/recognition line, first person, as if it were someone speaking\",\n  \"attribution\": \"short attribution — empty string if there's no specific person\",\n  \"caption\": \"full caption for the Instagram post\"\n}`,\n  stat: `{\n  \"big_number\": \"the data point itself, e.g. '13.65%' or '$3,200' — must come literally from the idea description, never invented\",\n  \"label\": \"short explanation of what the number means\",\n  \"caption\": \"full caption for the Instagram post\"\n}`\n};\n\n// EDIT ME: rename/reword/trim these 10 content pillars to match your niche.\n// The three flagged requiresSource in \"Determine Template & Schema\" (hook_stat,\n// math_example, news_reaction) are the ones this prompt will refuse to\n// fabricate data for — keep that behavior even if you rename the pillars.\nconst CONTENT_TYPE_RULES = {\n  hook: 'Direct hook — an attention-grabbing line that stops the scroll.',\n  myth: 'Debunk a common misconception in your niche, without sounding condescending.',\n  trust: 'Reinforce your neutrality/trust positioning — no personalized recommendations.',\n  hook_stat: 'Credibility stat from a real source. USE ONLY the number/source provided in the idea description. If the description does not contain a concrete, verifiable data point, do not invent one — this will be treated as an error.',\n  news_reaction: 'Reacting to real news. USE ONLY the facts provided in the idea description. If the description does not contain a real, concrete news item, do not invent one — this will be treated as an error.',\n  math_example: 'Worked numerical example. The numbers must come from the idea description, never invented.',\n  how_it_works: 'Explain how the product works, without a sales tone.',\n  glossario: 'Explain a term from your field in plain language.',\n  cta: 'Invite the audience to take your call to action, without artificial urgency.',\n  pain_mirror: 'Mirror a common frustration your audience has felt, in first person, without irony.'\n};\n\nconst items = [];\n\nfor (const item of $input.all()) {\n  const card = item.json;\n\n  const schema = SCHEMA_INSTRUCTIONS[card.field_schema] || SCHEMA_INSTRUCTIONS.headline;\n  const rule = CONTENT_TYPE_RULES[card.content_type] || '';\n\n  const userPrompt = `Create the content for an Instagram post based on this idea:\n\nTitle: ${card.card_name}\nContent type: ${card.content_type}\nDescription: ${card.idea_description}\n\nSpecific guidance for this content type: ${rule}\n${card.requires_source ? '\\nATTENTION: this content type requires a real data point/source. If the description above does not contain a concrete, verifiable number, statistic, or fact, respond with only {\"error\": \"missing_source_data\"} — do not invent one to fill the gap.' : ''}\n\nReturn ONLY the raw JSON below, no markdown, no \\`\\`\\`json, no backticks, no text before or after:\n\n${schema}\n\nIMPORTANT: in any text field, replace double quotes with single quotes. Example: use 'did my money grow?' instead of \"did my money grow?\".`;\n\n  items.push({\n    json: {\n      ...card,\n      system_prompt: BRAND_SYSTEM,\n      user_prompt: userPrompt\n    }\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -240
+      ],
+      "id": "b2f4d6e8-3a5c-4b7f-8d2e-9c1a4f6b8e0d",
+      "name": "Build Claude Prompt"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-6"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.user_prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "system": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        -240
+      ],
+      "id": "8fdb02c5-7da6-479a-83ac-b0b9d06c27b7",
+      "name": "Message a model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "REPLACE_WITH_YOUR_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// O node Anthropic substitui item.json inteiro pela resposta bruta da API —\n// tudo que veio antes (card_id, template, content_type, etc.) some. Por isso\n// recuperamos esses campos direto do node anterior por nome, em vez de\n// espalhar (...) o item atual.\nconst claudeItems = $input.all();\nconst upstreamItems = $('Build Claude Prompt').all();\n\nconst items = [];\n\nfor (let i = 0; i < claudeItems.length; i++) {\n  const claude = claudeItems[i].json;\n  const card = upstreamItems[i].json;\n\n  // content_type desconhecido, já sinalizado antes de chamar o Claude —\n  // propaga o erro sem tentar interpretar a resposta do modelo.\n  if (card.generation_error) {\n    items.push({ json: card });\n    continue;\n  }\n\n  const raw = claude.content[0].text;\n\n  let parsed;\n  try {\n    parsed = JSON.parse(raw);\n  } catch (e) {\n    parsed = { error: 'invalid_json_from_model' };\n  }\n\n  if (parsed.error) {\n    items.push({\n      json: {\n        ...card,\n        generation_error: parsed.error === 'missing_source_data'\n          ? 'Claude recusou gerar: descrição da ideia não trouxe dado/fonte real verificável.'\n          : `Erro ao interpretar resposta do modelo: ${parsed.error}`\n      }\n    });\n    continue;\n  }\n\n  items.push({\n    json: {\n      ...card,\n      headline: parsed.headline || '',\n      subtext: parsed.subtext || '',\n      quote: parsed.quote || '',\n      attribution: parsed.attribution || '',\n      big_number: parsed.big_number || '',\n      label: parsed.label || '',\n      caption: parsed.caption || card.caption || ''\n    }\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        -240
+      ],
+      "id": "447d823e-fbd2-4ae1-8544-1ebbe900010b",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1a2b3c4-d5e6-4f70-8a9b-1c2d3e4f5a6b",
+              "leftValue": "={{ $json.generation_error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        -240
+      ],
+      "id": "d3e5f7a9-4b6c-4d8e-9f0a-2b3c4d5e6f7a",
+      "name": "Content generation OK?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nfor (const item of $input.all()) {\n  const card = item.json;\n  let fields = {};\n\n  if (card.field_schema === 'quote') {\n    fields = { quote: card.quote, attribution: card.attribution };\n  } else if (card.field_schema === 'stat') {\n    fields = { tag: card.fixed_tag, big_number: card.big_number, label: card.label };\n  } else {\n    fields = { headline: card.headline };\n    if (card.fixed_tag) fields.tag = card.fixed_tag;\n    if (card.subtext) fields.subtext = card.subtext;\n  }\n\n  items.push({ json: { ...card, lambda_fields: fields } });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -340
+      ],
+      "id": "e4f6a8b0-5c7d-4e9f-a01b-3c4d5e6f7a8b",
+      "name": "Build Lambda Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://PASTE_YOUR_LAMBDA_FUNCTION_URL.lambda-url.YOUR-REGION.on.aws/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ template: $json.template, fields: $json.lambda_fields }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        -340
+      ],
+      "id": "f5a7b9c1-6d8e-4f0a-b12c-4d5e6f7a8b9c",
+      "name": "Render image (Lambda)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// O node HTTP Request também substitui item.json pela resposta (statusCode/\n// headers/body) — mesmo problema do node do Claude. Recupera os dados de\n// antes (card_id, template, caption, etc.) direto do node anterior.\nconst responseItems = $input.all();\nconst upstreamItems = $('Build Lambda Fields').all();\n\nconst items = [];\n\nfor (let i = 0; i < responseItems.length; i++) {\n  const response = responseItems[i].json;\n  const card = upstreamItems[i].json;\n  const status = response.statusCode;\n  const body = response.body || {};\n\n  if (status === 200 && body.image_url) {\n    items.push({ json: { ...card, image_url: body.image_url } });\n  } else {\n    items.push({\n      json: {\n        ...card,\n        generation_error: `Lambda retornou ${status}: ${body.error || 'erro desconhecido'}`\n      }\n    });\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2608,
+        -340
+      ],
+      "id": "a6b8c0d2-7e9f-4a1b-823d-5e6f7a8b9c0d",
+      "name": "Parse Lambda Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "b7c9d1e3-8f0a-4b2c-934e-6f7a8b9c0d1e",
+              "leftValue": "={{ $json.image_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2816,
+        -340
+      ],
+      "id": "c8d0e2f4-9a1b-4c3d-a45f-7a8b9c0d1e2f",
+      "name": "Image render OK?"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth1",
+        "resource": "card",
+        "operation": "update",
+        "id": "={{ $json.card_id }}",
+        "updateFields": {
+          "desc": "={{ JSON.stringify({ content_type: $json.content_type, idea_description: $json.idea_description, caption: $json.caption, image_url: $json.image_url, scheduled_time: $json.scheduled_time, expected_generation_date: $json.expected_generation_date, ig_post_id: $json.ig_post_id, error_message: '' }) }}",
+          "idList": "PASTE_YOUR_TRELLO_LIST_ID_TO_APPROVE"
+        }
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        3024,
+        -340
+      ],
+      "id": "d9e1f3a5-0b2c-4d4e-b56a-8b9c0d1e2f3a",
+      "name": "Update card (success)",
+      "credentials": {
+        "trelloOAuth1Api": {
+          "id": "REPLACE_WITH_YOUR_TRELLO_CREDENTIAL_ID",
+          "name": "Trello account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth1",
+        "resource": "card",
+        "operation": "update",
+        "id": "={{ $json.card_id }}",
+        "updateFields": {
+          "desc": "={{ JSON.stringify({ content_type: $json.content_type, idea_description: $json.idea_description, caption: $json.caption, image_url: $json.image_url, scheduled_time: $json.scheduled_time, expected_generation_date: $json.expected_generation_date, ig_post_id: $json.ig_post_id, error_message: $json.generation_error }) }}",
+          "idList": "PASTE_YOUR_TRELLO_LIST_ID_ERROR"
+        }
+      },
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        40
+      ],
+      "id": "e0f2a4b6-1c3d-4e5f-c67b-9c0d1e2f3a4b",
+      "name": "Update card (error)",
+      "credentials": {
+        "trelloOAuth1Api": {
+          "id": "REPLACE_WITH_YOUR_TRELLO_CREDENTIAL_ID",
+          "name": "Trello account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get all cards in a list": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Determine Template & Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Template & Schema": {
+      "main": [
+        [
+          {
+            "node": "Build Claude Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Claude Prompt": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Content generation OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content generation OK?": {
+      "main": [
+        [
+          {
+            "node": "Build Lambda Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update card (error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Lambda Fields": {
+      "main": [
+        [
+          {
+            "node": "Render image (Lambda)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render image (Lambda)": {
+      "main": [
+        [
+          {
+            "node": "Parse Lambda Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Lambda Response": {
+      "main": [
+        [
+          {
+            "node": "Image render OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image render OK?": {
+      "main": [
+        [
+          {
+            "node": "Update card (success)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update card (error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "945601b2-34ee-46dd-aed8-bde50c5cd794",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REPLACE_ON_IMPORT"
+  },
+  "nodeGroups": [],
+  "tags": []
+}
