@@ -1,4 +1,4 @@
-.DS_Store
+**/.DS_Store
 
 # Secrets
 .env
@@ -10,3 +10,8 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+
+# Personal data (kept outside the repo)
+experiments/job_assistant/Funil_Vagas.sheets.xlsx
+experiments/job_assistant/data/jobs.json
+experiments/job_assistant/debug_log.json

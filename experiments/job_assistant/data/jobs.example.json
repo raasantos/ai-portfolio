@@ -1,0 +1,38 @@
+[
+  {
+    "id": "job_001",
+    "empresa": "Acme Payments",
+    "vaga": "Senior Product Manager, AI Platform",
+    "link": null,
+    "tipo": "Remoto",
+    "status": "applied",
+    "data_aplicacao": "2026-01-15",
+    "proxima_acao": "Aguardar retorno do recrutador",
+    "descricao": "Fictional posting. Lead the roadmap for an internal LLM platform used by risk and support teams. Work with engineering on evaluation, guardrails and cost monitoring.",
+    "remoto": true,
+    "salario_divulgado": false,
+    "salario": null,
+    "requisitos": ["5+ years in product management", "Experience with B2B or regulated products", "Familiarity with LLM APIs"],
+    "beneficios": ["Health insurance", "Learning budget"],
+    "skills": ["Product discovery", "LLM evaluation", "Stakeholder management"],
+    "palavras_ats": ["product manager", "AI", "LLM", "fintech"]
+  },
+  {
+    "id": "job_002",
+    "empresa": "Nimbus Logistics",
+    "vaga": "Group Product Manager, Automation",
+    "link": null,
+    "tipo": "Híbrido",
+    "status": "interview",
+    "data_aplicacao": "2026-01-22",
+    "proxima_acao": "Entrevista com o time de engenharia",
+    "descricao": "Fictional posting. Own a portfolio of workflow automation products. Define human-in-the-loop approval flows and measure impact on operational cost.",
+    "remoto": false,
+    "salario_divulgado": true,
+    "salario": 30000.0,
+    "requisitos": ["Experience managing PMs", "Workflow automation background", "Data-driven decision making"],
+    "beneficios": ["Meal allowance", "Stock options"],
+    "skills": ["Automation", "Team leadership", "Metrics"],
+    "palavras_ats": ["group product manager", "automation", "workflow"]
+  }
+]

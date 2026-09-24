@@ -1,7 +1,12 @@
 import json
+import os
 
 
-with open("data/jobs.json", "r") as f:
+# Real job list stays local (gitignored). Falls back to the fictional sample.
+JOBS_PATH = "data/jobs.json"
+EXAMPLE_PATH = "data/jobs.example.json"
+
+with open(JOBS_PATH if os.path.exists(JOBS_PATH) else EXAMPLE_PATH, "r") as f:
     jobs = json.load(f)
 
 

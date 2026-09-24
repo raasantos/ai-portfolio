@@ -10,4 +10,4 @@
 
 Raw outputs are preserved in full below. Analysis follows each source. When adding future research, paste raw output first — then analyze.
 
-No research has been run yet. This file is a placeholder matching the `product 3` structure.
+No research has been run yet. This file is a placeholder matching the `product-3` structure.
